@@ -7,6 +7,7 @@ const chat = computed(() => getChatById(chatId.value))
 
 const input = ref('')
 const status = ref<'ready' | 'submitted' | 'streaming'>('ready')
+const copied = ref(false)
 
 watchEffect(() => {
   activeChatId.value = chatId.value
@@ -35,97 +36,96 @@ async function handleSubmit() {
   }, 1500)
 }
 
-function copyMessage(text: string) {
+function copyMessage(e: MouseEvent, message: { id: string; parts?: { text: string }[] }) {
+  const text = message.parts?.map((p) => p.text).join('') || ''
   navigator.clipboard.writeText(text)
-  const toast = useToast()
-  toast.add({ title: 'Copied to clipboard', icon: 'i-lucide-check', color: 'success' })
+  copied.value = true
+
+  setTimeout(() => {
+    copied.value = false
+  }, 2000)
 }
 </script>
 
 <template>
-  <UDashboardPanel>
+  <UDashboardPanel
+    id="chat"
+    class="relative min-h-0"
+    :ui="{ body: 'p-0 sm:p-0 overscroll-none' }"
+  >
     <template #header>
-      <UDashboardNavbar>
-        <template #title>
-          <div class="flex items-center gap-2 min-w-0">
-            <UIcon name="i-lucide-message-square" class="size-4 text-(--ui-text-dimmed) shrink-0" />
-            <span class="truncate text-sm font-medium">{{ chat?.title || 'Chat' }}</span>
-          </div>
-        </template>
-      </UDashboardNavbar>
+      <DashboardNavbar />
     </template>
 
     <template #body>
-      <UContainer class="max-w-3xl h-full">
+      <UContainer class="flex-1 flex flex-col gap-4 sm:gap-6">
         <UChatMessages
           v-if="chat"
           :messages="(chat.messages as any)"
           :status="status"
           should-auto-scroll
-          :user="{
-            variant: 'soft',
-            side: 'right',
-            avatar: { icon: 'i-lucide-user' },
-            actions: []
-          }"
-          :assistant="{
-            variant: 'naked',
-            side: 'left',
-            icon: 'i-lucide-sparkles',
-            actions: []
-          }"
+          :assistant="status !== 'streaming'
+            ? { actions: [{ label: 'Copy', icon: copied ? 'i-lucide-copy-check' : 'i-lucide-copy', onClick: copyMessage }] }
+            : { actions: [] }"
+          :spacing-offset="160"
+          class="lg:pt-(--ui-header-height) pb-4 sm:pb-6"
         >
           <template #content="{ message }">
-            <template v-for="(part, index) in message.parts" :key="`${message.id}-${index}`">
-              <p v-if="part.type === 'text'" class="whitespace-pre-wrap leading-relaxed">{{ part.text }}</p>
+            <template
+              v-for="(part, index) in message.parts"
+              :key="`${message.id}-${index}`"
+            >
+              <p
+                v-if="part.type === 'text'"
+                class="whitespace-pre-wrap leading-relaxed"
+              >
+                {{ part.text }}
+              </p>
             </template>
-          </template>
-
-          <template #actions="{ message }">
-            <div class="flex items-center gap-0.5 mt-1">
-              <UTooltip text="Copy">
-                <UButton
-                  icon="i-lucide-copy"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  square
-                  @click="copyMessage(message.parts?.map((p: any) => p.text).join('') || '')"
-                />
-              </UTooltip>
-            </div>
-          </template>
-
-          <template #indicator>
-            <div class="flex items-center gap-2 text-(--ui-text-dimmed) text-sm px-1">
-              <span class="flex gap-1">
-                <span class="size-1.5 rounded-full bg-(--ui-primary) animate-bounce" style="animation-delay: 0ms" />
-                <span class="size-1.5 rounded-full bg-(--ui-primary) animate-bounce" style="animation-delay: 150ms" />
-                <span class="size-1.5 rounded-full bg-(--ui-primary) animate-bounce" style="animation-delay: 300ms" />
-              </span>
-              <span>Thinking...</span>
-            </div>
           </template>
         </UChatMessages>
 
-        <div v-else class="flex flex-col items-center justify-center h-full gap-4">
-          <UIcon name="i-lucide-message-square-off" class="size-12 text-(--ui-text-dimmed)" />
-          <p class="text-(--ui-text-muted)">Chat not found</p>
-          <UButton label="Start a new chat" to="/" color="primary" variant="soft" />
+        <!-- Chat not found state -->
+        <div
+          v-else
+          class="flex flex-col items-center justify-center h-full gap-5"
+        >
+          <UIcon
+            name="i-lucide-message-square-off"
+            class="size-12 text-muted"
+          />
+          <p class="text-muted">Chat not found</p>
+          <UButton
+            label="Start a new chat"
+            to="/"
+            color="primary"
+            variant="soft"
+          />
         </div>
-      </UContainer>
-    </template>
 
-    <template #footer>
-      <UContainer class="pb-4 sm:pb-6 max-w-3xl">
+        <!-- Chat prompt — sticky at bottom -->
         <UChatPrompt
           v-model="input"
-          variant="outline"
-          placeholder="Message OpenChat..."
           :disabled="!chat"
+          variant="subtle"
+          placeholder="Message OpenChat..."
+          autofocus
+          class="sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10"
+          :ui="{ base: 'px-1.5' }"
           @submit="handleSubmit"
         >
-          <UChatPromptSubmit :status="status" />
+          <template #footer>
+            <div class="flex items-center gap-1">
+              <ModelSelect />
+            </div>
+
+            <UChatPromptSubmit
+              :status="status"
+              color="neutral"
+              size="sm"
+              @stop="status = 'ready'"
+            />
+          </template>
         </UChatPrompt>
       </UContainer>
     </template>

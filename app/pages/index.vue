@@ -7,23 +7,27 @@ const isSubmitting = ref(false)
 const suggestions = [
   {
     icon: 'i-lucide-code',
-    title: 'Write code',
-    description: 'Help me build a REST API with authentication'
+    label: 'Write a Vue composable',
   },
   {
     icon: 'i-lucide-lightbulb',
-    title: 'Brainstorm ideas',
-    description: 'Generate creative solutions for my project'
+    label: 'Brainstorm project ideas',
   },
   {
     icon: 'i-lucide-book-open',
-    title: 'Explain a concept',
-    description: 'Break down complex topics into simple terms'
+    label: 'Explain a concept',
   },
   {
     icon: 'i-lucide-bug',
-    title: 'Debug an issue',
-    description: 'Help me find and fix bugs in my code'
+    label: 'Debug my code',
+  },
+  {
+    icon: 'i-lucide-pen-tool',
+    label: 'Draft documentation',
+  },
+  {
+    icon: 'i-lucide-git-branch',
+    label: 'Review my PR',
   }
 ]
 
@@ -45,72 +49,67 @@ async function handleSubmit() {
   }, 1200)
 }
 
-async function handleSuggestion(suggestion: typeof suggestions[number]) {
-  input.value = suggestion.description
+async function handleSuggestion(label: string) {
+  input.value = label
   await handleSubmit()
 }
 </script>
 
 <template>
-  <UDashboardPanel>
-    <template #body>
-      <div class="flex flex-col items-center justify-center h-full px-4">
-        <div class="flex flex-col items-center gap-3 mb-12 animate-fade-in">
-          <div class="relative">
-            <div class="size-16 rounded-2xl bg-(--ui-primary)/10 flex items-center justify-center">
-              <UIcon name="i-lucide-sparkles" class="size-8 text-(--ui-primary)" />
-            </div>
-            <div class="absolute inset-0 rounded-2xl bg-(--ui-primary)/5 blur-xl scale-150" />
-          </div>
-
-          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-(--ui-text)">
-            What can I help you with?
-          </h1>
-          <p class="text-(--ui-text-muted) text-base max-w-md text-center leading-relaxed">
-            Ask me anything — from writing code to explaining complex ideas. I'm here to help.
-          </p>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl mb-8 animate-fade-in-delayed">
-          <button
-            v-for="suggestion in suggestions"
-            :key="suggestion.title"
-            class="group flex items-start gap-3 p-4 rounded-xl border border-(--ui-border) bg-(--ui-bg)/50 hover:bg-(--ui-bg-elevated) hover:border-(--ui-primary)/30 transition-all duration-200 text-left cursor-pointer"
-            @click="handleSuggestion(suggestion)"
-          >
-            <div class="size-9 rounded-lg bg-(--ui-primary)/10 flex items-center justify-center shrink-0 group-hover:bg-(--ui-primary)/15 transition-colors">
-              <UIcon :name="suggestion.icon" class="size-4.5 text-(--ui-primary)" />
-            </div>
-            <div class="flex flex-col gap-0.5 min-w-0">
-              <span class="text-sm font-medium text-(--ui-text) group-hover:text-(--ui-primary) transition-colors">
-                {{ suggestion.title }}
-              </span>
-              <span class="text-xs text-(--ui-text-dimmed) leading-relaxed truncate">
-                {{ suggestion.description }}
-              </span>
-            </div>
-          </button>
-        </div>
-      </div>
+  <UDashboardPanel
+    :ui="{ body: 'p-0 sm:p-0' }"
+  >
+    <template #header>
+      <DashboardNavbar />
     </template>
 
-    <template #footer>
-      <UContainer class="pb-4 sm:pb-6 max-w-3xl">
-        <UChatPrompt
-          v-model="input"
-          variant="outline"
-          placeholder="Message OpenChat..."
-          @submit="handleSubmit"
-        >
-          <UChatPromptSubmit
-            :status="isSubmitting ? 'submitted' : 'ready'"
-          />
-        </UChatPrompt>
+    <template #body>
+      <div class="flex flex-1 flex-col items-center justify-center px-4 sm:px-6">
+        <UContainer class="flex flex-col items-center gap-6 max-w-2xl w-full">
+          <!-- Greeting -->
+          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-center animate-fade-in">
+            How can I help you today?
+          </h1>
 
-        <p class="text-center text-xs text-(--ui-text-dimmed) mt-3">
-          OpenChat is a frontend demo. Responses are simulated.
-        </p>
-      </UContainer>
+          <!-- Chat prompt — centered on this page -->
+          <UChatPrompt
+            v-model="input"
+            variant="subtle"
+            placeholder="Message OpenChat..."
+            autofocus
+            class="w-full [view-transition-name:chat-prompt] animate-fade-in-delayed"
+            :ui="{ base: 'px-1.5' }"
+            @submit="handleSubmit"
+          >
+            <template #footer>
+              <div class="flex items-center gap-1">
+                <ModelSelect />
+              </div>
+
+              <UChatPromptSubmit
+                :status="isSubmitting ? 'submitted' : 'ready'"
+                color="neutral"
+                size="sm"
+              />
+            </template>
+          </UChatPrompt>
+
+          <!-- Quick suggestions as inline buttons -->
+          <div class="flex flex-wrap justify-center gap-2 animate-fade-in-delayed">
+            <UButton
+              v-for="suggestion in suggestions"
+              :key="suggestion.label"
+              :icon="suggestion.icon"
+              :label="suggestion.label"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              class="rounded-full"
+              @click="handleSuggestion(suggestion.label)"
+            />
+          </div>
+        </UContainer>
+      </div>
     </template>
   </UDashboardPanel>
 </template>

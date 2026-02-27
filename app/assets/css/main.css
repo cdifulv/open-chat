@@ -5,11 +5,21 @@
   --font-sans: 'Outfit', sans-serif;
 }
 
-/* Fade-in animation for welcome page */
+@layer base {
+  body {
+    @apply bg-neutral-50 dark:bg-neutral-950;
+  }
+}
+
+:root {
+  --ui-container: var(--container-3xl);
+}
+
+/* ── Fade-in animations ── */
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -18,24 +28,24 @@
 }
 
 .animate-fade-in {
-  animation: fade-in-up 0.6s ease-out both;
+  animation: fade-in-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .animate-fade-in-delayed {
-  animation: fade-in-up 0.6s ease-out 0.15s both;
+  animation: fade-in-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
 }
 
-/* Custom scrollbar for the sidebar */
+/* ── Custom scrollbar ── */
 .dark {
   --scrollbar-track: transparent;
-  --scrollbar-thumb: rgba(255, 255, 255, 0.08);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.15);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.06);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.12);
 }
 
 :root {
   --scrollbar-track: transparent;
-  --scrollbar-thumb: rgba(0, 0, 0, 0.08);
-  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.15);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.06);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.12);
 }
 
 * {
@@ -44,8 +54,8 @@
 }
 
 *::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 *::-webkit-scrollbar-track {
@@ -59,4 +69,16 @@
 
 *::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
+}
+
+/* ── View transitions ── */
+::view-transition-old(chat-prompt),
+::view-transition-new(chat-prompt) {
+  animation-duration: 0.25s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Subtle selection color ── */
+::selection {
+  background: color-mix(in srgb, var(--ui-primary) 25%, transparent);
 }

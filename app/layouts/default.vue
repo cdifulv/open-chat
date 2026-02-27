@@ -1,222 +1,159 @@
 <script setup lang="ts">
+import { authClient } from '~/utils/auth-client';
+
 const route = useRoute();
-const { groupedChats, createChat, deleteChat, activeChatId } = useChats();
+const toast = useToast();
 
-const renamingChatId = ref<string | null>(null);
-const renameInput = ref('');
+const { data: session } = await authClient.useSession(useFetch);
+const loggedIn = computed(() => !!session.value);
 
-async function handleNewChat() {
-  const chat = createChat();
-  await navigateTo(`/chat/${chat.id}`);
-}
+const open = ref(false);
+const { groupedChats, deleteChat } = useChats();
 
 async function handleDeleteChat(id: string) {
   deleteChat(id);
+
+  toast.add({
+    title: 'Chat deleted',
+    icon: 'i-lucide-trash',
+    color: 'neutral'
+  });
+
   if (route.params.id === id) {
     await navigateTo('/');
   }
 }
 
-function startRename(chat: { id: string; title: string }) {
-  renamingChatId.value = chat.id;
-  renameInput.value = chat.title;
-}
-
-function confirmRename(chatId: string) {
-  const { renameChat } = useChats();
-  if (renameInput.value.trim()) {
-    renameChat(chatId, renameInput.value.trim());
-  }
-  renamingChatId.value = null;
-}
-
-function getChatMenuItems(chat: { id: string; title: string }) {
-  return [
-    [
+// Navigation menu items for sidebar (flat list with labels + chat items)
+const navItems = computed(() =>
+  groupedChats.value?.flatMap((group) => {
+    return [
       {
-        label: 'Rename',
-        icon: 'i-lucide-pencil',
-        onSelect: () => startRename(chat)
-      }
-    ],
-    [
+        label: group.label,
+        type: 'label' as const
+      },
+      ...group.chats.map((chat) => ({
+        id: chat.id,
+        label: chat.title,
+        to: `/chat/${chat.id}`,
+        slot: 'chat' as const,
+        class: chat.title === 'Untitled' ? 'text-muted' : ''
+      }))
+    ];
+  })
+);
+
+// Search groups for UDashboardSearch
+const searchGroups = computed(() => [
+  {
+    id: 'links',
+    items: [
       {
-        label: 'Delete',
-        icon: 'i-lucide-trash-2',
-        color: 'error' as const,
-        onSelect: () => handleDeleteChat(chat.id)
+        label: 'New chat',
+        to: '/',
+        icon: 'i-lucide-square-pen'
       }
     ]
-  ];
-}
+  },
+  ...groupedChats.value.map((group) => ({
+    id: group.label,
+    label: group.label,
+    items: group.chats.map((chat) => ({
+      label: chat.title,
+      to: `/chat/${chat.id}`,
+      icon: 'i-lucide-message-circle'
+    }))
+  }))
+]);
+
+defineShortcuts({
+  c: () => navigateTo('/')
+});
 </script>
 
 <template>
-  <UDashboardGroup>
+  <UDashboardGroup unit="rem">
     <UDashboardSidebar
+      id="default"
+      v-model:open="open"
+      :min-size="12"
       collapsible
       resizable
-      :min-size="14"
-      :default-size="18"
-      :max-size="28"
-      :ui="{
-        root: 'bg-(--ui-bg-elevated)/80 backdrop-blur-xl',
-        footer: 'border-t border-(--ui-border)'
-      }"
+      class="border-r-0 py-4"
     >
       <template #header="{ collapsed }">
-        <div class="flex w-full items-center gap-2">
-          <div v-if="!collapsed" class="flex min-w-0 flex-1 items-center gap-2">
+        <NuxtLink to="/" class="flex items-end gap-0.5">
+          <div
+            class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-(--ui-primary)/10"
+          >
             <UIcon
               name="i-lucide-sparkles"
-              class="size-5 shrink-0 text-(--ui-primary)"
+              class="size-4.5 text-(--ui-primary)"
             />
-            <span class="truncate text-sm font-semibold tracking-tight"
-              >OpenChat</span
-            >
           </div>
-          <UIcon
-            v-else
-            name="i-lucide-sparkles"
-            class="mx-auto size-5 text-(--ui-primary)"
-          />
-
-          <UTooltip v-if="!collapsed" text="New chat" :delay-duration="300">
-            <UButton
-              icon="i-lucide-plus"
-              color="primary"
-              variant="soft"
-              size="xs"
-              square
-              @click="handleNewChat"
-            />
-          </UTooltip>
-          <UTooltip
-            v-else
-            text="New chat"
-            :content="{ side: 'right' }"
-            :delay-duration="0"
+          <span v-if="!collapsed" class="text-highlighted text-xl font-bold"
+            >Chat</span
           >
-            <UButton
-              icon="i-lucide-plus"
-              color="primary"
-              variant="soft"
-              size="xs"
-              square
-              @click="handleNewChat"
-            />
-          </UTooltip>
+        </NuxtLink>
+
+        <div v-if="!collapsed" class="ms-auto flex items-center gap-1.5">
+          <UDashboardSearchButton collapsed />
         </div>
-        .
       </template>
 
       <template #default="{ collapsed }">
-        <div v-if="collapsed" class="flex flex-col items-center gap-1 py-1">
-          <UTooltip
-            v-for="group in groupedChats"
-            :key="group.label"
-            :text="group.label"
-            :content="{ side: 'right' }"
-            :delay-duration="0"
-          >
-            <template v-for="chat in group.chats.slice(0, 2)" :key="chat.id">
-              <UButton
-                icon="i-lucide-message-square"
-                :color="route.params.id === chat.id ? 'primary' : 'neutral'"
-                :variant="route.params.id === chat.id ? 'soft' : 'ghost'"
-                size="xs"
-                square
-                :to="`/chat/${chat.id}`"
-              />
-            </template>
-          </UTooltip>
+        <div class="flex flex-col gap-1.5">
+          <UButton
+            v-bind="
+              collapsed ? { icon: 'i-lucide-plus' } : { label: 'New chat' }
+            "
+            variant="soft"
+            block
+            to="/"
+            @click="open = false"
+          />
+
+          <template v-if="collapsed">
+            <UDashboardSearchButton collapsed />
+          </template>
         </div>
 
-        <div v-else class="flex flex-col gap-4 py-1">
-          <div
-            v-for="group in groupedChats"
-            :key="group.label"
-            class="flex flex-col gap-0.5"
-          >
-            <span
-              class="px-2.5 py-1.5 text-xs font-medium tracking-wider text-(--ui-text-dimmed) uppercase"
-            >
-              {{ group.label }}
-            </span>
-
+        <UNavigationMenu
+          v-if="!collapsed"
+          :items="navItems"
+          :collapsed="collapsed"
+          orientation="vertical"
+          :ui="{ link: 'overflow-hidden' }"
+        >
+          <template #chat-trailing="{ item }">
             <div
-              v-for="chat in group.chats"
-              :key="chat.id"
-              class="group relative"
+              class="-mr-1.25 flex translate-x-full transition-transform group-hover:translate-x-0"
             >
-              <div v-if="renamingChatId === chat.id" class="px-1">
-                <UInput
-                  v-model="renameInput"
-                  size="xs"
-                  autofocus
-                  @keydown.enter="confirmRename(chat.id)"
-                  @keydown.escape="renamingChatId = null"
-                  @blur="confirmRename(chat.id)"
-                />
-              </div>
-
-              <NuxtLink
-                v-else
-                :to="`/chat/${chat.id}`"
-                class="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors duration-150"
-                :class="[
-                  route.params.id === chat.id
-                    ? 'bg-(--ui-primary)/10 text-(--ui-primary)'
-                    : 'text-(--ui-text-muted) hover:bg-(--ui-bg-accented) hover:text-(--ui-text)'
-                ]"
-                @click="activeChatId = chat.id"
-              >
-                <span class="flex-1 truncate">{{ chat.title }}</span>
-
-                <UDropdownMenu
-                  :items="getChatMenuItems(chat)"
-                  :content="{ align: 'start' }"
-                >
-                  <UButton
-                    icon="i-lucide-ellipsis"
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    square
-                    class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                    @click.prevent
-                  />
-                </UDropdownMenu>
-              </NuxtLink>
+              <UButton
+                icon="i-lucide-x"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                class="text-muted hover:text-primary hover:bg-accented/50 focus-visible:bg-accented/50 p-0.5"
+                tabindex="-1"
+                @click.stop.prevent="handleDeleteChat((item as any).id)"
+              />
             </div>
-          </div>
-        </div>
+          </template>
+        </UNavigationMenu>
       </template>
 
       <template #footer="{ collapsed }">
-        <div
-          class="flex items-center gap-2"
-          :class="collapsed ? 'flex-col' : 'justify-between'"
-        >
-          <UButton
-            :avatar="{ icon: 'i-lucide-user' }"
-            :label="collapsed ? undefined : 'You'"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            :square="collapsed"
-            class="flex-1"
-            :class="!collapsed && 'justify-start'"
-          />
-          <UColorModeButton
-            :size="collapsed ? 'xs' : 'sm'"
-            color="neutral"
-            variant="ghost"
-          />
-        </div>
+        <UserMenu v-if="loggedIn" :collapsed="collapsed" />
       </template>
     </UDashboardSidebar>
 
-    <slot />
+    <UDashboardSearch placeholder="Search chats..." :groups="searchGroups" />
+
+    <div
+      class="ring-default bg-default/75 m-4 flex min-w-0 flex-1 rounded-lg shadow ring lg:ml-0"
+    >
+      <slot />
+    </div>
   </UDashboardGroup>
 </template>
