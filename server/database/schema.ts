@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm'
-import { boolean, index, pgEnum, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, index, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core'
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -64,9 +64,28 @@ export const verification = pgTable(
   (table) => [index('verification_identifier_idx').on(table.identifier)],
 )
 
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    encryptedKey: text('encrypted_key').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+  },
+  (table) => [
+    unique('api_keys_user_provider_unique').on(table.userId, table.provider),
+    index('api_keys_userId_idx').on(table.userId),
+  ],
+)
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  apiKeys: many(apiKeys),
 }))
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -83,22 +102,43 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }))
 
+export const apiKeyRelations = relations(apiKeys, ({ one }) => ({
+  user: one(user, {
+    fields: [apiKeys.userId],
+    references: [user.id],
+  }),
+}))
+
 export const chats = pgTable('chats', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
+  deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 })
-
-export const messageRoleEnum = pgEnum('message_role', ['user', 'assistant'])
 
 export const messages = pgTable('messages', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   chatId: text('chat_id')
     .notNull()
     .references(() => chats.id, { onDelete: 'cascade' }),
-  role: messageRoleEnum('role').notNull(),
-  content: text('content').notNull(),
+  role: text('role').notNull(),
+  parts: jsonb('parts').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
+
+export const chatRelations = relations(chats, ({ one, many }) => ({
+  user: one(user, {
+    fields: [chats.userId],
+    references: [user.id],
+  }),
+  messages: many(messages),
+}))
+
+export const messageRelations = relations(messages, ({ one }) => ({
+  chat: one(chats, {
+    fields: [messages.chatId],
+    references: [chats.id],
+  }),
+}))

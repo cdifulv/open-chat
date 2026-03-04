@@ -1,8 +1,9 @@
 <script setup lang="ts">
-const { createChat, addMessage, getMockResponse } = useChats()
+const { createChat } = useChats()
 
 const input = ref('')
 const isSubmitting = ref(false)
+const initialMessage = useState<string | null>('initial-message', () => null)
 
 const suggestions = [
   {
@@ -28,7 +29,7 @@ const suggestions = [
   {
     icon: 'i-lucide-git-branch',
     label: 'Review my PR',
-  }
+  },
 ]
 
 async function handleSubmit() {
@@ -38,15 +39,17 @@ async function handleSubmit() {
   const text = input.value.trim()
   input.value = ''
 
-  const chat = createChat(text)
-  addMessage(chat.id, 'user', text)
-
-  await navigateTo(`/chat/${chat.id}`)
-
-  setTimeout(() => {
-    addMessage(chat.id, 'assistant', getMockResponse(text))
+  try {
+    const chat = await createChat(text)
+    initialMessage.value = text
+    await navigateTo(`/chat/${chat.id}`)
+  }
+  catch {
+    input.value = text
+  }
+  finally {
     isSubmitting.value = false
-  }, 1200)
+  }
 }
 
 async function handleSuggestion(label: string) {

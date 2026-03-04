@@ -1,43 +1,81 @@
 <script setup lang="ts">
+import { Chat } from '@ai-sdk/vue'
+import { TextStreamChatTransport, type UIMessage } from 'ai'
+
 const route = useRoute()
-const { getChatById, addMessage, getMockResponse, activeChatId } = useChats()
+const { activeChatId, refreshChats } = useChats()
+const { model } = useModels()
 
 const chatId = computed(() => route.params.id as string)
-const chat = computed(() => getChatById(chatId.value))
 
-const input = ref('')
-const status = ref<'ready' | 'submitted' | 'streaming'>('ready')
 const copied = ref(false)
+const initialLoaded = ref(false)
 
 watchEffect(() => {
   activeChatId.value = chatId.value
 })
 
-watch(chatId, () => {
-  status.value = 'ready'
-})
-
-async function handleSubmit() {
-  if (!input.value.trim() || status.value !== 'ready') return
-
-  const text = input.value.trim()
-  input.value = ''
-  status.value = 'submitted'
-
-  addMessage(chatId.value, 'user', text)
-
-  setTimeout(() => {
-    status.value = 'streaming'
-  }, 600)
-
-  setTimeout(() => {
-    addMessage(chatId.value, 'assistant', getMockResponse(text))
-    status.value = 'ready'
-  }, 1500)
+function createChat(id: string) {
+  return new Chat({
+    transport: new TextStreamChatTransport({
+      api: `/api/chats/${id}`,
+      body: () => ({ model: model.value }),
+    }),
+    onFinish: () => {
+      refreshChats()
+    },
+  })
 }
 
-function copyMessage(e: MouseEvent, message: { id: string; parts?: { text: string }[] }) {
-  const text = message.parts?.map((p) => p.text).join('') || ''
+const chat = shallowRef(createChat(chatId.value))
+
+const messages = computed(() => chat.value.messages)
+const input = ref('')
+const chatStatus = computed(() => chat.value.status)
+
+function handleSubmit() {
+  const text = input.value.trim()
+  if (!text) return
+  input.value = ''
+  chat.value.sendMessage({ text })
+}
+
+// Load existing messages when navigating to a chat
+watch(
+  chatId,
+  async (id) => {
+    initialLoaded.value = false
+    chat.value = createChat(id)
+    try {
+      const data = await $fetch<{ messages: Array<{ id: string; role: string; parts: Array<{ type: string; text?: string }> }> }>(`/api/chats/${id}`)
+      chat.value.messages = data.messages.map((m) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        parts: m.parts,
+      })) as UIMessage[]
+    }
+    catch {
+      chat.value.messages = []
+    }
+    initialLoaded.value = true
+  },
+  { immediate: true },
+)
+
+// Handle initial message from query param (when creating from home page)
+const initialMessage = useState<string | null>('initial-message', () => null)
+watch(initialLoaded, (loaded) => {
+  if (loaded && initialMessage.value && chat.value.messages.length === 0) {
+    input.value = initialMessage.value
+    initialMessage.value = null
+    nextTick(() => {
+      handleSubmit()
+    })
+  }
+})
+
+function copyMessage(e: MouseEvent, message: { id: string; parts?: Array<{ type: string; text?: string }> }) {
+  const text = message.parts?.filter((p) => p.type === 'text').map((p) => p.text ?? '').join('') || ''
   navigator.clipboard.writeText(text)
   copied.value = true
 
@@ -60,11 +98,11 @@ function copyMessage(e: MouseEvent, message: { id: string; parts?: { text: strin
     <template #body>
       <UContainer class="flex-1 flex flex-col gap-4 sm:gap-6">
         <UChatMessages
-          v-if="chat"
-          :messages="(chat.messages as any)"
-          :status="status"
+          v-if="initialLoaded"
+          :messages="(messages as any)"
+          :status="chatStatus"
           should-auto-scroll
-          :assistant="status !== 'streaming'
+          :assistant="chatStatus !== 'streaming'
             ? { actions: [{ label: 'Copy', icon: copied ? 'i-lucide-copy-check' : 'i-lucide-copy', onClick: copyMessage }] }
             : { actions: [] }"
           :spacing-offset="160"
@@ -85,28 +123,9 @@ function copyMessage(e: MouseEvent, message: { id: string; parts?: { text: strin
           </template>
         </UChatMessages>
 
-        <!-- Chat not found state -->
-        <div
-          v-else
-          class="flex flex-col items-center justify-center h-full gap-5"
-        >
-          <UIcon
-            name="i-lucide-message-square-off"
-            class="size-12 text-muted"
-          />
-          <p class="text-muted">Chat not found</p>
-          <UButton
-            label="Start a new chat"
-            to="/"
-            color="primary"
-            variant="soft"
-          />
-        </div>
-
         <!-- Chat prompt — sticky at bottom -->
         <UChatPrompt
           v-model="input"
-          :disabled="!chat"
           variant="subtle"
           placeholder="Message OpenChat..."
           autofocus
@@ -120,10 +139,10 @@ function copyMessage(e: MouseEvent, message: { id: string; parts?: { text: strin
             </div>
 
             <UChatPromptSubmit
-              :status="status"
+              :status="chatStatus"
               color="neutral"
               size="sm"
-              @stop="status = 'ready'"
+              @stop="chat.stop()"
             />
           </template>
         </UChatPrompt>

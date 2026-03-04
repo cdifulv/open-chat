@@ -15,9 +15,14 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.48",
+    "@ai-sdk/google": "^3.0.33",
+    "@ai-sdk/openai": "^3.0.36",
+    "@ai-sdk/vue": "^3.0.103",
     "@iconify-json/lucide": "^1.2.90",
     "@iconify-json/simple-icons": "^1.2.70",
     "@nuxt/ui": "^4.4.0",
+    "ai": "^6.0.103",
     "better-auth": "^1.4.19",
     "drizzle-orm": "^0.45.1",
     "nuxt": "^4.3.1",

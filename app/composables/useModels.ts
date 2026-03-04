@@ -1,14 +1,29 @@
-export function useModels() {
-  const models = [
-    { label: 'GPT-4o', value: 'openai/gpt-4o', icon: 'i-simple-icons-openai' },
-    { label: 'Claude Sonnet 4', value: 'anthropic/claude-sonnet-4', icon: 'i-simple-icons-anthropic' },
-    { label: 'Gemini 2.5 Flash', value: 'google/gemini-2.5-flash', icon: 'i-simple-icons-google' }
-  ]
+interface Model {
+  label: string
+  value: string
+  icon: string
+  provider: string
+}
 
-  const model = useCookie<string>('model', { default: () => 'openai/gpt-4o' })
+export function useModels() {
+  const { data: models, refresh, status } = useFetch<Model[]>('/api/user/models', {
+    default: () => [],
+    lazy: true,
+  })
+
+  const model = useCookie<string>('model', { default: () => '' })
+
+  watch(models, (list) => {
+    if (!list.length) return
+    if (!model.value || !list.some(m => m.value === model.value)) {
+      model.value = list[0]!.value
+    }
+  })
 
   return {
     models,
-    model
+    model,
+    refresh,
+    status,
   }
 }

@@ -8,20 +8,35 @@ const { data: session } = await authClient.useSession(useFetch);
 const loggedIn = computed(() => !!session.value);
 
 const open = ref(false);
-const { groupedChats, deleteChat } = useChats();
+const { groupedChats, deleteChat, restoreChat, refreshChats } = useChats();
+
+// Fetch chats from API on mount
+onMounted(() => {
+  if (loggedIn.value) {
+    refreshChats()
+  }
+})
 
 async function handleDeleteChat(id: string) {
-  deleteChat(id);
-
-  toast.add({
-    title: 'Chat deleted',
-    icon: 'i-lucide-trash',
-    color: 'neutral'
-  });
+  const deletedChat = await deleteChat(id);
 
   if (route.params.id === id) {
     await navigateTo('/');
   }
+
+  toast.add({
+    title: 'Chat deleted',
+    icon: 'i-lucide-trash',
+    color: 'neutral',
+    actions: deletedChat
+      ? [{
+          label: 'Undo',
+          color: 'primary' as const,
+          variant: 'subtle' as const,
+          onClick: () => restoreChat(deletedChat),
+        }]
+      : [],
+  });
 }
 
 // Navigation menu items for sidebar (flat list with labels + chat items)

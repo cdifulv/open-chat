@@ -35,6 +35,13 @@ const items = computed(() => [
   ],
   [
     {
+      label: 'Settings',
+      icon: 'i-lucide-settings',
+      onSelect: () => navigateTo('/settings')
+    }
+  ],
+  [
+    {
       label: 'Sign out',
       icon: 'i-lucide-log-out',
       onSelect: signOut
