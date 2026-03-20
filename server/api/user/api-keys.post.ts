@@ -10,17 +10,17 @@ export default defineEventHandler(async (event) => {
   const session = await auth.api.getSession({ headers: event.headers })
 
   if (!session) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, message: 'Unauthorized' })
   }
 
   const body = await readBody<{ provider: string, key: string }>(event)
 
   if (!body.provider || !VALID_PROVIDERS.includes(body.provider)) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid provider' })
+    throw createError({ statusCode: 400, message: 'Invalid provider' })
   }
 
   if (!body.key?.trim()) {
-    throw createError({ statusCode: 400, statusMessage: 'API key is required' })
+    throw createError({ statusCode: 400, message: 'API key is required' })
   }
 
   const encryptedKey = encrypt(body.key.trim())

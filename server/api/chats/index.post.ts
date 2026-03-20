@@ -5,7 +5,7 @@ import { db } from '../../utils/db'
 export default defineEventHandler(async (event) => {
   const session = await auth.api.getSession({ headers: event.headers })
   if (!session) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, message: 'Unauthorized' })
   }
 
   const body = await readBody<{ title?: string }>(event)

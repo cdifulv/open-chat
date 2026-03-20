@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const session = await auth.api.getSession({ headers: event.headers })
 
   if (!session) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, message: 'Unauthorized' })
   }
 
   const body = await readBody<{ name: string }>(event)
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   const name = body.name?.trim()
 
   if (!name) {
-    throw createError({ statusCode: 400, statusMessage: 'Name is required' })
+    throw createError({ statusCode: 400, message: 'Name is required' })
   }
 
   await db

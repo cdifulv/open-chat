@@ -14,6 +14,6 @@ export function resolveModel(modelId: string, apiKey: string) {
     case 'google':
       return createGoogleGenerativeAI({ apiKey })(modelName)
     default:
-      throw createError({ statusCode: 400, statusMessage: `Unsupported provider: ${provider}` })
+      throw createError({ statusCode: 400, message: `Unsupported provider: ${provider}` })
   }
 }
